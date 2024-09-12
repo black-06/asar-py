@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["asar"]
+
+[project]
+name = "asar"
+version = "0.1.0"
+description = "Library for working with Electron's ASAR archive files"
+readme = "README.md"
+authors = [
+    { name = "Black", email = "hello.bug@foxmail.com" },
+]
+keywords = ["asar"]
+classifiers = ["Programming Language :: Python :: 3"]

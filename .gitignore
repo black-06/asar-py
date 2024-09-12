@@ -1,0 +1,6 @@
+tests/output
+tests/*.asar
+tests/*.asar.unpacked
+
+*.egg-info
+dist
