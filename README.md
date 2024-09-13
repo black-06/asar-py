@@ -2,6 +2,13 @@
 
 Library for working with [Electron's ASAR](https://github.com/electron/asar) archive files.
 
+<a href="https://pypi.org/project/asar" target="_blank">
+  <img alt="PyPI - Version" src="https://img.shields.io/pypi/v/asar">
+</a>
+<a href="https://pypi.org/project/asar" target="_blank">
+  <img alt="PyPI - Python Version" src="https://img.shields.io/pypi/pyversions/asar">
+</a>
+
 # Installation
 
 ```
