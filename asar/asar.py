@@ -13,7 +13,7 @@ from typing import Dict, Any, BinaryIO, List
 from .limited_reader import LimitedReader
 from .metadata import Metadata, Type
 
-UINT32_MAX = 2 ** 32 - 1
+UINT32_MAX = 2**32 - 1
 
 
 def align_int(i: int, alignment: int) -> int:
@@ -30,6 +30,7 @@ class AsarArchive:
     """
     Class with methods to open, read, write, close asar files.
     """
+
     asar: Path
     asar_unpacked: Path
     _asar_io: BinaryIO
@@ -191,7 +192,9 @@ class AsarArchive:
                     shutil.copyfileobj(meta.file_reader, writer)
 
     def _read_from_asar(self):
-        data_size, header_size, header_object_size, header_string_size = struct.unpack("<4I", self._asar_io.read(16))
+        data_size, header_size, header_object_size, header_string_size = struct.unpack(
+            "<4I", self._asar_io.read(16)
+        )
         header = json.loads(self._asar_io.read(header_string_size).decode("utf-8"))
         self._offset = 8 + header_size
         self._parse_metadata(header, Path(""))
@@ -217,16 +220,20 @@ class AsarArchive:
                     node.file_reader = LimitedReader(self._asar_io, self._offset + node.offset, node.size)
 
     def _write_to_asar(self):
-        header_json = json.dumps(self._header.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        header_json = json.dumps(
+            self._header.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )
         header_json = header_json.encode("utf-8")
         data_size = 4
         header_string_size = len(header_json)
         aligned_size = align_int(header_string_size, data_size)
         header_object_size = aligned_size + data_size
         header_size = header_object_size + data_size
-        self._asar_io.write(struct.pack("<4I", data_size, header_size, header_object_size, header_string_size))
+        self._asar_io.write(
+            struct.pack("<4I", data_size, header_size, header_object_size, header_string_size)
+        )
         self._asar_io.write(header_json)
-        self._asar_io.write(b'\0' * (aligned_size - header_string_size))
+        self._asar_io.write(b"\0" * (aligned_size - header_string_size))
         for metadata in self.metas:
             if metadata.type != Type.FILE:
                 continue
@@ -257,7 +264,7 @@ class AsarArchive:
                 node = node.files[part]
         if node.files.get(name) is None:
             if create:
-                metadata = Metadata(path=path_in)
+                metadata = Metadata(path=path_in, type=Type.DIRECTORY, files={})
                 node.files[name] = metadata
                 self.metas.append(metadata)
             else:

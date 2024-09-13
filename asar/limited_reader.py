@@ -6,6 +6,7 @@ class LimitedReader:
     """
     LimitedReader wraps a part of a reader into a reader.
     """
+
     _reader: BinaryIO
     _offset: int
     _size: int
@@ -21,7 +22,7 @@ class LimitedReader:
         if n == -1 or n > self._remaining:
             n = self._remaining
         if n == 0:
-            return b''
+            return b""
         chunk = self._reader.read(n)
         self._remaining -= len(chunk)
         return chunk

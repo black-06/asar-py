@@ -12,9 +12,7 @@ def _cmp_dir(d1: Path, d2: Path):
     assert len(d1_files) == len(d2_files), f"dir {d1} and {d2} is different"
     for f1, f2 in zip(d1_files, d2_files):
         if f1.is_symlink() and f2.is_symlink():
-            return f1.resolve().relative_to(d1.resolve()) == f2.resolve().relative_to(
-                d2.resolve()
-            )
+            return f1.resolve().relative_to(d1.resolve()) == f2.resolve().relative_to(d2.resolve())
         if f1.is_dir() and f2.is_dir():
             return f1.name == f2.name
         if f1.is_file() and f2.is_file():
@@ -54,9 +52,7 @@ def test_list_and_read_asar():
 
 def test_pack_other_asar():
     new_asar = Path("./tests/testdata.new.asar")
-    with AsarArchive(asar, mode="r") as reader, AsarArchive(
-        new_asar, mode="w"
-    ) as writer:
+    with AsarArchive(asar, mode="r") as reader, AsarArchive(new_asar, mode="w") as writer:
         writer.pack_other_asar(reader)
 
     shutil.rmtree(dst, ignore_errors=True)
@@ -88,9 +84,7 @@ def test_pack_all():
     with AsarArchive(tmp_asar, mode="w") as writer:
         writer.pack_file(f3, src / "f1.txt")
         writer.pack_stream(f4, io.BytesIO(b"hello"))
-    with AsarArchive(tmp_asar, mode="r") as reader, AsarArchive(
-        asar, mode="w"
-    ) as writer:
+    with AsarArchive(tmp_asar, mode="r") as reader, AsarArchive(asar, mode="w") as writer:
         writer.pack(src)
         writer.pack_stream(f5, io.BytesIO(b"test"))
         writer.pack_other_asar(reader)

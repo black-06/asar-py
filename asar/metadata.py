@@ -12,6 +12,7 @@ class Type(Enum):
     """
     File Type
     """
+
     DIRECTORY = 1
     LINK = 2
     FILE = 3
@@ -22,6 +23,7 @@ class Metadata:
     """
     File metadata stored in the header.
     """
+
     # path in asar file
     path: Path
     type: Type = None
