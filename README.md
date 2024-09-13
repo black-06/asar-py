@@ -2,6 +2,12 @@
 
 Library for working with [Electron's ASAR](https://github.com/electron/asar) archive files.
 
+<a href="https://github.com/black-06/asar-py/actions/workflows/test.yml" > 
+  <img src="https://github.com/black-06/asar-py/actions/workflows/test.yml/badge.svg"/> 
+</a>
+<a href="https://codecov.io/github/black-06/asar-py" > 
+  <img src="https://codecov.io/github/black-06/asar-py/graph/badge.svg"/> 
+</a>
 <a href="https://pypi.org/project/asar" target="_blank">
   <img alt="PyPI - Version" src="https://img.shields.io/pypi/v/asar">
 </a>
