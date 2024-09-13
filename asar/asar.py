@@ -73,6 +73,8 @@ class AsarArchive:
         for meta in other.metas:
             node = self._search_node_from_path(meta.path)
             node.set_from_other(meta)
+            if meta.type == Type.DIRECTORY:
+                continue
             if meta.type == Type.FILE and not meta.unpacked:
                 node.offset = self._offset
                 self._offset += node.size

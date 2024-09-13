@@ -92,7 +92,6 @@ class Metadata:
             self.link = other.link
         elif self.type == Type.DIRECTORY:
             self.unpacked = other.unpacked
-            self.files = {}
         else:
             self.unpacked = other.unpacked
             self.size = other.size
