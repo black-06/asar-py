@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  upload-python-package:
 
     runs-on: ubuntu-latest
 
