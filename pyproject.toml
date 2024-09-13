@@ -7,7 +7,7 @@ packages = ["asar"]
 
 [project]
 name = "asar"
-version = "0.1.0"
+version = "0.1.1"
 description = "Library for working with Electron's ASAR archive files"
 readme = "README.md"
 authors = [
@@ -15,3 +15,4 @@ authors = [
 ]
 keywords = ["asar"]
 classifiers = ["Programming Language :: Python :: 3"]
+urls = { "Homepage" = "https://github.com/black-06/asar-py" }
