@@ -37,7 +37,7 @@ class LimitedReader:
             offset = end_offset + offset
         else:
             raise ValueError("invalid whence value")
-        if not (self._offset <= offset < end_offset):
+        if not (self._offset <= offset <= end_offset):
             raise ValueError("seek position is out of bounds")
         self._remaining = end_offset - offset
-        return self._reader.seek(offset, whence)
+        return self._reader.seek(offset, io.SEEK_SET)

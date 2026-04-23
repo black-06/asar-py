@@ -70,6 +70,7 @@ class Metadata:
         self.size = stat.st_size
         self.integrity = get_file_integrity(file_path)
         self.file_path = file_path
+        self.file_reader = None
         self.executable = os.name != "nt" and (stat.st_mode & 0o100)
 
     def set_stream(self, file_reader: Union[BinaryIO, LimitedReader], unpacked: bool):
@@ -81,6 +82,8 @@ class Metadata:
         self.unpacked = unpacked
         self.type = Type.FILE
         self.integrity, self.size = get_reader_integrity(file_reader)
+        file_reader.seek(0)
+        self.file_path = None
         self.file_reader = file_reader
 
     def set_from_other(self, other: "Metadata"):

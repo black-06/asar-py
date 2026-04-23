@@ -1,8 +1,12 @@
 import io
+import json
+import struct
 import shutil
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from asar import create_archive, extract_archive, AsarArchive
+from asar.asar import align_int
 
 
 def _cmp_dir(d1: Path, d2: Path):
@@ -52,7 +56,10 @@ def test_list_and_read_asar():
 
 def test_pack_other_asar():
     new_asar = Path("./tests/testdata.new.asar")
-    with AsarArchive(asar, mode="r") as reader, AsarArchive(new_asar, mode="w") as writer:
+    with (
+        AsarArchive(asar, mode="r") as reader,
+        AsarArchive(new_asar, mode="w") as writer,
+    ):
         writer.pack_other_asar(reader)
 
     shutil.rmtree(dst, ignore_errors=True)
@@ -73,6 +80,17 @@ def test_pack_file_and_stream():
         assert reader.read(added2_path) == added2_text
 
 
+def test_pack_stream_overwrites_existing_file_path_entry():
+    overwritten_path = Path("overwrite.txt")
+    replacement_data = b"stream wins over file"
+    with AsarArchive(asar, mode="w") as writer:
+        writer.pack_file(overwritten_path, src / "f1.txt")
+        writer.pack_stream(overwritten_path, io.BytesIO(replacement_data))
+
+    with AsarArchive(asar, mode="r") as reader:
+        assert reader.read(overwritten_path) == replacement_data
+
+
 def test_pack_all():
     tmp_asar = Path("./tests/testdata.tmp.asar")
     f3, f4, f5, f6 = (
@@ -84,7 +102,10 @@ def test_pack_all():
     with AsarArchive(tmp_asar, mode="w") as writer:
         writer.pack_file(f3, src / "f1.txt")
         writer.pack_stream(f4, io.BytesIO(b"hello"))
-    with AsarArchive(tmp_asar, mode="r") as reader, AsarArchive(asar, mode="w") as writer:
+    with (
+        AsarArchive(tmp_asar, mode="r") as reader,
+        AsarArchive(asar, mode="w") as writer,
+    ):
         writer.pack(src)
         writer.pack_stream(f5, io.BytesIO(b"test"))
         writer.pack_other_asar(reader)
@@ -95,3 +116,72 @@ def test_pack_all():
     assert (dst / f4).read_bytes() == b"hello"
     assert (dst / f5).read_bytes() == b"test"
     assert (dst / f6).read_bytes() == (src / "assets" / "icon.png").read_bytes()
+
+
+def test_read_asar_without_integrity_field():
+    broken_asar = Path("./tests/testdata.no-integrity.asar")
+    create_archive(src, broken_asar)
+
+    with broken_asar.open("rb") as reader:
+        data_size, header_size, header_object_size, header_string_size = struct.unpack("<4I", reader.read(16))
+        header = json.loads(reader.read(header_string_size).decode("utf-8"))
+        reader.seek(8 + header_size)
+        payload = reader.read()
+
+    del header["files"]["f1.txt"]["integrity"]
+    header_json = json.dumps(header, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
+    aligned_size = align_int(len(header_json), data_size)
+    header_object_size = aligned_size + data_size
+    header_size = header_object_size + data_size
+
+    with broken_asar.open("wb") as writer:
+        writer.write(struct.pack("<4I", data_size, header_size, header_object_size, len(header_json)))
+        writer.write(header_json)
+        writer.write(b"\0" * (aligned_size - len(header_json)))
+        writer.write(payload)
+
+    with AsarArchive(broken_asar, mode="r") as archive:
+        assert archive.read(Path("f1.txt")) == (src / "f1.txt").read_bytes()
+
+
+def test_pack_other_asar_handles_zero_length_file():
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        source_dir = root / "source"
+        source_dir.mkdir()
+        (source_dir / "empty.txt").write_bytes(b"")
+        source_asar = root / "source.asar"
+        copied_asar = root / "copied.asar"
+
+        create_archive(source_dir, source_asar)
+
+        with (
+            AsarArchive(source_asar, mode="r") as reader,
+            AsarArchive(copied_asar, mode="w") as writer,
+        ):
+            writer.pack_other_asar(reader)
+
+        with AsarArchive(copied_asar, mode="r") as archive:
+            assert archive.read(Path("empty.txt")) == b""
+
+
+def test_pack_other_asar_can_overwrite_existing_file():
+    replaced = Path("f1.txt")
+    original_data = (src / "f1.txt").read_bytes()
+    replacement_data = b"replaced via pack_other_asar workflow"
+    new_asar = Path("./tests/testdata.overwrite.asar")
+
+    with (
+        AsarArchive(asar, mode="r") as reader,
+        AsarArchive(new_asar, mode="w") as writer,
+    ):
+        writer.pack_other_asar(reader)
+        writer.pack_stream(replaced, io.BytesIO(replacement_data))
+
+    with AsarArchive(new_asar, mode="r") as archive:
+        assert archive.read(replaced) == replacement_data
+        assert archive.read(Path("assets/icon.png")) == (src / "assets" / "icon.png").read_bytes()
+        assert archive.read(Path("f2.exe")) == (src / "f2.exe").read_bytes()
+        assert archive.read(Path("f1.txt")) != original_data

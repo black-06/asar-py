@@ -3,6 +3,7 @@ Asar is a simple extensive archive format for Electron Archive, it works like ta
 together without compression, while having random access support.
 """
 
+import io
 import fnmatch
 import json
 import shutil
@@ -72,13 +73,23 @@ class AsarArchive:
 
     def pack_other_asar(self, other: "AsarArchive"):
         for meta in other.metas:
-            node = self._search_node_from_path(meta.path)
-            node.set_from_other(meta)
             if meta.type == Type.DIRECTORY:
+                node = self._search_node_from_path(meta.path)
+                if node.type == Type.DIRECTORY and node.files is not None:
+                    node.unpacked = meta.unpacked
+                else:
+                    node.set_dir(meta.unpacked)
                 continue
-            if meta.type == Type.FILE and not meta.unpacked:
-                node.offset = self._offset
-                self._offset += node.size
+            if meta.type == Type.LINK:
+                node = self._search_node_from_path(meta.path)
+                node.set_link(meta.link)
+                continue
+            if meta.type != Type.FILE:
+                continue
+            data = other.read(meta.path)
+            self.pack_stream(meta.path, io.BytesIO(data), should_unpack=meta.unpacked)
+            node = self._search_node_from_path(meta.path)
+            node.executable = meta.executable
 
     def pack(self, src: Path, unpack: str = None):
         """
@@ -106,7 +117,11 @@ class AsarArchive:
             for child in path.iterdir():
                 self._pack(child, src, unpack)
         else:
-            self.pack_file(path_in, path, should_unpack=unpack and fnmatch.fnmatch(path.name, unpack))
+            self.pack_file(
+                path_in,
+                path,
+                should_unpack=unpack and fnmatch.fnmatch(path.name, unpack),
+            )
 
     def pack_stream(self, path_in: Path, file_reader: BinaryIO, should_unpack: bool = False):
         """
@@ -211,7 +226,7 @@ class AsarArchive:
             else:
                 node.unpacked = "unpacked" in child and bool(child["unpacked"])
                 node.type = Type.FILE
-                node.integrity = child["integrity"]
+                node.integrity = child.get("integrity")
                 node.size = child["size"]
                 if node.unpacked:
                     node.file_path = self.asar_unpacked / node.path
@@ -220,8 +235,18 @@ class AsarArchive:
                     node.file_reader = LimitedReader(self._asar_io, self._offset + node.offset, node.size)
 
     def _write_to_asar(self):
+        current_offset = 0
+        for metadata in self.metas:
+            if metadata.type != Type.FILE or metadata.unpacked:
+                continue
+            metadata.offset = current_offset
+            current_offset += metadata.size
+
         header_json = json.dumps(
-            self._header.to_dict(), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+            self._header.to_dict(),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
         )
         header_json = header_json.encode("utf-8")
         data_size = 4
