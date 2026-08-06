@@ -35,7 +35,10 @@ def get_reader_integrity(reader: BinaryIO) -> Tuple[Dict[str, Any], int]:
     blocks = []
     size = 0
     reader.seek(0)
-    while chunk := reader.read(BLOCK_SIZE):
+    while True:
+        chunk = reader.read(BLOCK_SIZE)
+        if not chunk:
+            break
         size += len(chunk)
         hasher.update(chunk)
         blocks.append(hashlib.sha256(chunk).hexdigest())
