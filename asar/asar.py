@@ -188,10 +188,16 @@ class AsarArchive:
             dst = dst.resolve()
         for meta in self.metas:
             cur_dst = dst / meta.path
+            cur_dst_abs = cur_dst.resolve()
+            if dst != cur_dst_abs and dst not in cur_dst_abs.parents:
+                raise ValueError(f"unsafe path in archive: {meta.path}")
             if meta.type == Type.DIRECTORY:
                 cur_dst.mkdir(parents=True, exist_ok=True)
             elif meta.type == Type.LINK:
                 src_link = dst / meta.link
+                src_link_abs = src_link.resolve()
+                if dst != src_link_abs and dst not in src_link_abs.parents:
+                    raise ValueError(f"unsafe link in archive: {meta.path} -> {meta.link}")
                 try:
                     cur_dst.symlink_to(src_link)
                 except FileExistsError:
@@ -216,6 +222,8 @@ class AsarArchive:
 
     def _parse_metadata(self, info: Dict[str, Any], path_in: Path):
         for name, child in info["files"].items():
+            if name in ("", ".", "..") or "/" in name or "\\" in name:
+                raise ValueError(f"invalid entry name in asar header: {name!r}")
             cur_path = path_in / name
             node = self._search_node_from_path(cur_path)
             if "files" in child:

@@ -5,6 +5,8 @@ import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pytest
+
 from asar import create_archive, extract_archive, AsarArchive
 from asar.asar import align_int
 
@@ -56,10 +58,7 @@ def test_list_and_read_asar():
 
 def test_pack_other_asar():
     new_asar = Path("./tests/testdata.new.asar")
-    with (
-        AsarArchive(asar, mode="r") as reader,
-        AsarArchive(new_asar, mode="w") as writer,
-    ):
+    with AsarArchive(asar, mode="r") as reader, AsarArchive(new_asar, mode="w") as writer:
         writer.pack_other_asar(reader)
 
     shutil.rmtree(dst, ignore_errors=True)
@@ -102,10 +101,7 @@ def test_pack_all():
     with AsarArchive(tmp_asar, mode="w") as writer:
         writer.pack_file(f3, src / "f1.txt")
         writer.pack_stream(f4, io.BytesIO(b"hello"))
-    with (
-        AsarArchive(tmp_asar, mode="r") as reader,
-        AsarArchive(asar, mode="w") as writer,
-    ):
+    with AsarArchive(tmp_asar, mode="r") as reader, AsarArchive(asar, mode="w") as writer:
         writer.pack(src)
         writer.pack_stream(f5, io.BytesIO(b"test"))
         writer.pack_other_asar(reader)
@@ -157,10 +153,7 @@ def test_pack_other_asar_handles_zero_length_file():
 
         create_archive(source_dir, source_asar)
 
-        with (
-            AsarArchive(source_asar, mode="r") as reader,
-            AsarArchive(copied_asar, mode="w") as writer,
-        ):
+        with AsarArchive(source_asar, mode="r") as reader, AsarArchive(copied_asar, mode="w") as writer:
             writer.pack_other_asar(reader)
 
         with AsarArchive(copied_asar, mode="r") as archive:
@@ -173,10 +166,7 @@ def test_pack_other_asar_can_overwrite_existing_file():
     replacement_data = b"replaced via pack_other_asar workflow"
     new_asar = Path("./tests/testdata.overwrite.asar")
 
-    with (
-        AsarArchive(asar, mode="r") as reader,
-        AsarArchive(new_asar, mode="w") as writer,
-    ):
+    with AsarArchive(asar, mode="r") as reader, AsarArchive(new_asar, mode="w") as writer:
         writer.pack_other_asar(reader)
         writer.pack_stream(replaced, io.BytesIO(replacement_data))
 
@@ -185,3 +175,35 @@ def test_pack_other_asar_can_overwrite_existing_file():
         assert archive.read(Path("assets/icon.png")) == (src / "assets" / "icon.png").read_bytes()
         assert archive.read(Path("f2.exe")) == (src / "f2.exe").read_bytes()
         assert archive.read(Path("f1.txt")) != original_data
+
+
+def test_file_write_to_outside_directory():
+    # build a CWE-22 asar
+    payload = b"written outside out/ by asar.extract_archive\n"
+    node = {
+        "files": {
+            "tmp": {
+                "files": {
+                    "asar_poc.txt": {"size": len(payload), "offset": "0"},
+                    "asar_poc": {"link": "./asar_poc.txt"},
+                },
+            }
+        }
+    }
+    for _ in range(len(dst.resolve().parts)):
+        # enough '..' hops to reach /
+        node = {"files": {"..": node}}
+    header = json.dumps(node).encode()
+    aligned = (len(header) + 3) & ~3
+
+    path = Path("./tests/cwe-22.asar")
+    with path.open("wb") as f:
+        f.write(struct.pack("<4I", 4, aligned + 8, aligned + 4, len(header)))
+        f.write(header + b"\0" * (aligned - len(header)))
+        f.write(payload)
+
+    with pytest.raises(ValueError):
+        extract_archive(path, dst)
+
+    assert not Path("/tmp/asar_poc.txt").exists()
+    assert not Path("/tmp/asar_poc").exists()
